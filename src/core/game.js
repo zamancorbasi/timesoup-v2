@@ -3,6 +3,8 @@ import { Player } from "../entities/player.js";
 import { Platform } from "../entities/platform.js";
 import { CollisionSystem } from "../systems/collisionSystem.js";
 import { Camera } from "./camera.js";
+import { Collectable } from "../entities/collectable.js";
+
 
 
 export class Game {
@@ -27,6 +29,16 @@ export class Game {
     ];
     this.camera = new Camera(this.canvas.width, this.canvas.height);
 
+    this.collectables = [
+      new Collectable(700, 750),
+      new Collectable(1300, 600),
+      new Collectable(2100, 850),
+    ];
+
+    this.score = 0;
+	this.gameOver = false;
+
+
 
   }
 
@@ -45,6 +57,8 @@ export class Game {
   }
 
   update(delta) {
+	if (this.gameOver) return;
+
     this.player.update(this.input, delta, this.canvas.height);
 
     CollisionSystem.resolvePlayerPlatforms(
@@ -55,7 +69,18 @@ export class Game {
     this.input.update();
     this.camera.follow(this.player);
 
+    CollisionSystem.checkPlayerCollectables(
+      this.player,
+      this.collectables
+    );
 
+    // score hesapla
+    this.score = this.collectables.filter(c => c.collected).length;
+
+	
+    if (this.player.y > 2000) {
+      this.gameOver = true;
+    }
 
   }
 
@@ -78,8 +103,50 @@ export class Game {
   // player
   this.player.draw(ctx);
 
+  //coins
+  for (const c of this.collectables) {
+    c.draw(ctx);
+  }
+
+
   ctx.restore();
+
+	if (this.gameOver) {
+		ctx.fillStyle = "white";
+		ctx.font = "80px Arial";
+		ctx.textAlign = "center";
+		ctx.fillText(
+			"GAME OVER",
+			this.canvas.width / 2,
+			this.canvas.height / 2
+		);
+	}
+
+	if (this.gameOver && this.input.pressed("r")) {
+		this.restart();
+	}
+
+
+
+
 }
+
+	restart() {
+		this.player.x = 100;
+		this.player.y = 500;
+
+		this.player.vx = 0;
+		this.player.vy = 0;
+
+		this.player.jumpCount = 0;
+
+		for (const c of this.collectables) {
+			c.collected = false;
+		}
+
+		this.gameOver = false;
+	}
+
 
 
 }

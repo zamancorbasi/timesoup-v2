@@ -53,4 +53,21 @@ export class CollisionSystem {
       }
     }
   }
+
+  static checkPlayerCollectables(player, items) {
+  for (const item of items) {
+    if (item.collected) continue;
+
+    if (this.checkAABB(player, {
+      x: item.x,
+      y: item.y,
+      width: item.size,
+      height: item.size
+    })) {
+      item.collected = true;
+    }
+  }
+}
+
+
 }

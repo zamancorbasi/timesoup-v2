@@ -11,15 +11,15 @@ export class Camera {
   }
 
   follow(target) {
-    // player ortada
-    this.x = target.x + target.width / 2 - this.width / 2;
+    const targetX =
+      target.x + target.width / 2 - this.width / 2;
 
-    // Y sabit
-    this.y = 0;
+    // ⭐ LERP
+    this.x += (targetX - this.x) * 0.08;
 
-
-    // sınırlar
     this.x = Math.max(0, Math.min(this.x, this.levelWidth - this.width));
-    //this.y = Math.max(0, Math.min(this.y, this.levelHeight - this.height));
+
+    this.y = 0;
   }
+
 }
