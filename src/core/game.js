@@ -37,10 +37,10 @@ export class Game {
 
 
 		this.platforms = [
-			new Platform(0, 1000, 1920, 80),
-			new Platform(400, 800, 400, 40),
-			new Platform(1100, 650, 350, 40),
-			new Platform(700, 600, 300, 40),
+			new Platform(0, 1000, 1920, 80, this.platformSprite),
+			new Platform(400, 800, 400, 40, this.platformSprite),
+			new Platform(1100, 650, 350, 40, this.platformSprite),
+			new Platform(700, 600, 300, 40, this.platformSprite),
 		];
 
 		this.collectables = [
@@ -50,8 +50,8 @@ export class Game {
 		];
 
 		this.enemies = [
-			new Enemy(900, 940, 300),
-			new Enemy(1800, 840, 200),
+			new Enemy(900, 940, 300, this.enemySprite),
+			new Enemy(1800, 840, 200, this.enemySprite),
 		];
 
 		this.flag = new FinishFlag(1300, 880);
@@ -65,6 +65,9 @@ export class Game {
 	async loadAssets() {
 		try {
 			this.playerSprite = await loadImage("/assets/player.png");
+			this.enemySprite = await loadImage("/assets/enemy.png");
+			this.platformSprite = await loadImage("/assets/platform.png");
+
 		} catch (e) {
 			console.error(e);
 		}
@@ -128,6 +131,9 @@ export class Game {
 		for (const e of this.enemies) {
 			e.update(delta);
 		}
+		// ⭐ ölü enemyleri temizle
+		this.enemies = this.enemies.filter(e => !e.remove);
+
 
 		if (CollisionSystem.checkPlayerEnemies(this.player, this.enemies)) {
 			this.gameState = "gameover";

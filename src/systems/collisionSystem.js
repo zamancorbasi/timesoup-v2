@@ -110,32 +110,44 @@ export class CollisionSystem {
     const pb = this.getBox(player);
 
     for (const e of enemies) {
-      if (!e.alive) continue;
+
+      // ⭐ squash olmuşsa artık collision alma
+      if (!e.alive || e.squashed) continue;
 
       const eb = this.getBox(e);
 
       if (!this.checkAABB(player, e)) continue;
 
-      const playerBottom = pb.y + pb.height;
-      const enemyTop = eb.y;
+      const prevBottom = player.prevY + pb.height;
+      const currentBottom = pb.y + pb.height;
 
+      const wasAbove = prevBottom <= eb.y;
       const falling = player.vy > 0;
-      const fromTop = playerBottom - 8 <= enemyTop;
 
+      // ======================
       // ⭐ STOMP
-      if (falling && fromTop) {
+      // ======================
+      if (wasAbove && falling) {
+
         e.squashed = true;
+        e.alive = false;   // ⭐⭐⭐ EN KRİTİK SATIR
         e.squashTimer = 0.2;
 
         player.vy = -900;
+
         return false;
       }
 
-      return true; // öldü
+      // ======================
+      // NORMAL ÖLÜM
+      // ======================
+      return true;
     }
 
     return false;
   }
+
+
 
 
   // =========================================

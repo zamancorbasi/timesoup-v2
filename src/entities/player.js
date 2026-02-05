@@ -2,6 +2,8 @@ export class Player {
   constructor(x, y, sprite) {
     this.x = x;
     this.y = y;
+    this.prevY = y;
+
 
     this.width = 96;
     this.height = 96;
@@ -55,6 +57,8 @@ export class Player {
   // ====================================
 
   update(input, delta) {
+    this.prevY = this.y;
+
     const dt = delta / 1000;
 
     // ----------------
