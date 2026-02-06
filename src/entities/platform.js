@@ -15,6 +15,8 @@ export class Platform {
   draw(ctx) {
     if (!this.sprite) return;
 
+    
+
     const tiles = Math.floor(this.width / this.tileSize);
 
     const rows = Math.floor(this.height / this.tileSize);
@@ -68,5 +70,7 @@ export class Platform {
         );
       }
     }
+
+    
   }
 }

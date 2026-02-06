@@ -7,6 +7,8 @@ import { Collectable } from "../entities/collectable.js";
 import { Enemy } from "../entities/enemy.js";
 import { FinishFlag } from "../entities/finishFlag.js";
 import { loadImage } from "./assetLoader.js";
+import { createLevel1 } from "../levels/level1.js";
+
 
 
 export class Game {
@@ -32,33 +34,33 @@ export class Game {
 	// ====================================
 	// ⭐ TÜM BAŞLANGIÇ DEĞERLERİ
 	// ====================================
+	/**
+	 * 
+	 */
 	initialize() {
-		this.player = new Player(300, 100, this.playerSprite);
+		// Sprite'ları bir paket halinde gönderiyoruz
+		const sprites = {
+			player: this.playerSprite,
+			enemy: this.enemySprite,
+			platform: this.platformSprite,
+			bgSky: this.bgSky,
+			bgMountains: this.bgMountains,
+			bgTrees: this.bgTrees,
+			bgFront: this.bgFront
+		};
 
+		// Level verisini alıyoruz
+		const levelData = createLevel1(sprites);
 
-		this.platforms = [
-			new Platform(0, 1000, 1920, 80, this.platformSprite),
-			new Platform(400, 800, 400, 40, this.platformSprite),
-			new Platform(1100, 650, 350, 40, this.platformSprite),
-			new Platform(700, 600, 300, 40, this.platformSprite),
-		];
-
-		this.collectables = [
-			new Collectable(700, 750),
-			new Collectable(1300, 600),
-			new Collectable(2100, 850),
-		];
-
-		this.enemies = [
-			new Enemy(900, 940, 300, this.enemySprite),
-			new Enemy(1800, 840, 200, this.enemySprite),
-		];
-
-		this.flag = new FinishFlag(1300, 880);
+		// Game class'ındaki değişkenlere atıyoruz
+		this.player = levelData.player;
+		this.platforms = levelData.platforms;
+		this.collectables = levelData.collectables;
+		this.enemies = levelData.enemies;
+		this.flag = levelData.flag;
+		this.backgrounds = levelData.backgrounds;
 
 		this.score = 0;
-
-		// ⭐ TEK STATE SİSTEMİ
 		this.gameState = "play";
 	}
 
@@ -67,6 +69,10 @@ export class Game {
 			this.playerSprite = await loadImage("/assets/player.png");
 			this.enemySprite = await loadImage("/assets/enemy.png");
 			this.platformSprite = await loadImage("/assets/platform.png");
+			this.bgSky = await loadImage("/assets/bg_sky.png");
+			this.bgMountains = await loadImage("/assets/bg_mountains.png");
+			this.bgTrees = await loadImage("/assets/bg_trees.png");
+			this.bgFront = await loadImage("/assets/bg_front.png");
 
 		} catch (e) {
 			console.error(e);
@@ -152,8 +158,11 @@ export class Game {
 	draw() {
 		const ctx = this.ctx;
 
-		ctx.fillStyle = "black";
-		ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+		//ctx.fillStyle = "black";
+		//ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+		ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+		this.drawParallax(ctx);
 
 		ctx.save();
 		ctx.translate(-this.camera.x, -this.camera.y);
@@ -187,6 +196,40 @@ export class Game {
 			ctx.fillText("Press R to Restart", this.canvas.width / 2, this.canvas.height / 2 + 80);
 		}
 	}
+
+	drawParallax(ctx) {
+
+		for (const layer of this.backgrounds) {
+
+			const img = layer.img;
+			const speed = layer.speed;
+
+			const offset = -this.camera.x * speed;
+
+			// ⭐ istediğimiz çizim boyutu
+			const drawWidth = 1920;
+			const drawHeight = 1080;
+
+			// ⭐ zemine yasla
+			const y = this.canvas.height - drawHeight;
+
+			ctx.imageSmoothingEnabled = false;
+
+			// ⭐ repeat draw (scale'li)
+			for (let x = offset % drawWidth - drawWidth; x < this.canvas.width + drawWidth; x += drawWidth) {
+
+				ctx.drawImage(
+					img,
+					x,
+					y,
+					drawWidth,
+					drawHeight
+				);
+			}
+		}
+	}
+
+
 
 	// ====================================
 
