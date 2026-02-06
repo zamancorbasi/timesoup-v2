@@ -1,89 +1,77 @@
 import { Input } from "./input.js";
-import { Player } from "../entities/player.js";
-import { Platform } from "../entities/platform.js";
-import { CollisionSystem } from "../systems/collisionSystem.js";
 import { Camera } from "./camera.js";
-import { Collectable } from "../entities/collectable.js";
-import { Enemy } from "../entities/enemy.js";
-import { FinishFlag } from "../entities/finishFlag.js";
+import { CollisionSystem } from "../systems/collisionSystem.js";
 import { loadImage } from "./assetLoader.js";
 import { createLevel1 } from "../levels/level1.js";
-
-
+import { createLevel2 } from "../levels/level2.js";
 
 export class Game {
 	constructor() {
+		// Canvas Kurulumu
 		this.canvas = document.getElementById("game");
 		this.ctx = this.canvas.getContext("2d");
-
 		this.canvas.width = 1920;
 		this.canvas.height = 1080;
-
-		this.lastTime = 0;
-
-		this.input = new Input();
-		this.camera = new Camera(this.canvas.width, this.canvas.height);
-
-		// ⭐ TÜM GAME STATE BURADA
-		this.loadAssets();
 		this.ctx.imageSmoothingEnabled = false;
 
+		// Core Sistemler
+		this.input = new Input();
+		this.camera = new Camera(this.canvas.width, this.canvas.height);
+		this.lastTime = 0;
 
-	}
+		// Oyun Durumu
+		this.gameState = "loading"; // Başlangıçta loading
+		this.currentLevel = 0;
 
-	// ====================================
-	// ⭐ TÜM BAŞLANGIÇ DEĞERLERİ
-	// ====================================
-	/**
-	 * 
-	 */
-	initialize() {
-		// Sprite'ları bir paket halinde gönderiyoruz
-		const sprites = {
-			player: this.playerSprite,
-			enemy: this.enemySprite,
-			platform: this.platformSprite,
-			bgSky: this.bgSky,
-			bgMountains: this.bgMountains,
-			bgTrees: this.bgTrees,
-			bgFront: this.bgFront
-		};
-
-		// Level verisini alıyoruz
-		const levelData = createLevel1(sprites);
-
-		// Game class'ındaki değişkenlere atıyoruz
-		this.player = levelData.player;
-		this.platforms = levelData.platforms;
-		this.collectables = levelData.collectables;
-		this.enemies = levelData.enemies;
-		this.flag = levelData.flag;
-		this.backgrounds = levelData.backgrounds;
-
-		this.score = 0;
-		this.gameState = "play";
+		// Assetleri yükle ve oyunu başlat
+		this.loadAssets().then(() => {
+			this.gameState = "menu"; // Yükleme bitince menüye git
+			this.start();
+		});
 	}
 
 	async loadAssets() {
 		try {
-			this.playerSprite = await loadImage("/assets/player.png");
-			this.enemySprite = await loadImage("/assets/enemy.png");
-			this.platformSprite = await loadImage("/assets/platform.png");
-			this.bgSky = await loadImage("/assets/bg_sky.png");
-			this.bgMountains = await loadImage("/assets/bg_mountains.png");
-			this.bgTrees = await loadImage("/assets/bg_trees.png");
-			this.bgFront = await loadImage("/assets/bg_front.png");
-
+			// Tüm sprite'ları asenkron olarak yükle
+			this.sprites = {
+				player: await loadImage("/assets/player.png"),
+				enemy: await loadImage("/assets/enemy.png"),
+				platform: await loadImage("/assets/platform.png"),
+				bgSky: await loadImage("/assets/bg_sky.png"),
+				bgMountains: await loadImage("/assets/bg_mountains.png"),
+				bgTrees: await loadImage("/assets/bg_trees.png"),
+				bgFront: await loadImage("/assets/bg_front.png"),
+			};
 		} catch (e) {
-			console.error(e);
+			console.error("Assetler yüklenirken hata oluştu:", e);
 		}
-
-		this.initialize();
-		this.start();
 	}
 
+	loadLevel(levelNum) {
+		this.currentLevel = levelNum;
+		let levelData;
 
-	// ====================================
+		if (levelNum === 1) {
+			levelData = createLevel1(this.sprites);
+		} else if (levelNum === 2) {
+			levelData = createLevel2(this.sprites);
+		}
+
+		if (levelData) {
+			this.player = levelData.player;
+			this.platforms = levelData.platforms;
+			this.collectables = levelData.collectables;
+			this.enemies = levelData.enemies;
+			this.flag = levelData.flag;
+			this.backgrounds = levelData.backgrounds;
+
+			this.score = 0;
+			this.camera.x = 0;
+			this.camera.y = 0;
+
+			this.gameState = "play";
+		}
+	}
 
 	start() {
 		requestAnimationFrame(this.loop.bind(this));
@@ -99,69 +87,69 @@ export class Game {
 		requestAnimationFrame(this.loop.bind(this));
 	}
 
-	// ====================================
-
 	update(delta) {
-		// STATE
-		if (this.gameState !== "play") {
-			if (this.input.pressed("r")) this.restart();
-			this.input.update();
-			return;
+		// --- 1. MENU DURUMU ---
+		if (this.gameState === "menu") {
+			// Tuş basımlarını kontrol et
+			if (this.input.pressed("1")) {
+				console.log("Level 1 yükleniyor..."); // Kontrol için
+				this.loadLevel(1);
+			} else if (this.input.pressed("2")) {
+				console.log("Level 2 yükleniyor..."); // Kontrol için
+				this.loadLevel(2);
+			}
 		}
 
-		// PLAYER
-		this.player.update(this.input, delta, this.canvas.height);
+		// --- 2. OYUN İÇİ (PLAY) DURUMU ---
+		else if (this.gameState === "play") {
+			this.player.update(this.input, delta, this.canvas.height);
+			this.camera.follow(this.player);
 
-		CollisionSystem.resolvePlayerPlatforms(
-			this.player,
-			this.platforms
-		);
+			CollisionSystem.resolvePlayerPlatforms(this.player, this.platforms);
+			CollisionSystem.checkPlayerCollectables(this.player, this.collectables);
 
-		// CAMERA
-		this.camera.follow(this.player);
+			for (const e of this.enemies) e.update(delta);
+			this.enemies = this.enemies.filter(e => !e.remove);
 
-		// COLLECTABLE
-		CollisionSystem.checkPlayerCollectables(
-			this.player,
-			this.collectables
-		);
+			if (CollisionSystem.checkPlayerEnemies(this.player, this.enemies)) {
+				this.gameState = "gameover";
+			}
 
-		//this.score = this.collectables.filter(c => c.collected).length;
+			if (CollisionSystem.checkPlayerFlag(this.player, this.flag)) {
+				this.gameState = "win";
+			}
 
-		// FALL DEATH
-		if (this.player.y > 2000) {
-			this.gameState = "gameover";
+			if (this.player.y > 2000) this.gameState = "gameover";
 		}
 
-		// ENEMIES
-		for (const e of this.enemies) {
-			e.update(delta);
-		}
-		// ⭐ ölü enemyleri temizle
-		this.enemies = this.enemies.filter(e => !e.remove);
-
-
-		if (CollisionSystem.checkPlayerEnemies(this.player, this.enemies)) {
-			this.gameState = "gameover";
+		// --- 3. GAME OVER VEYA WIN DURUMU ---
+		else if (this.gameState === "gameover" || this.gameState === "win") {
+			if (this.input.pressed("r")) {
+				this.gameState = "menu";
+			}
 		}
 
-		// FLAG
-		if (CollisionSystem.checkPlayerFlag(this.player, this.flag)) {
-			this.gameState = "win";
-		}
-
+		// DİKKAT: input.update() her zaman en sonda kalmalı 
+		// ve tüm pressed() kontrollerinden sonra çalışmalı.
 		this.input.update();
 	}
 
-	// ====================================
-
 	draw() {
 		const ctx = this.ctx;
-
-		//ctx.fillStyle = "black";
-		//ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 		ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+		if (this.gameState === "menu") {
+			this.drawMenu(ctx);
+		}
+		else if (this.gameState === "play" || this.gameState === "gameover" || this.gameState === "win") {
+			this.drawGame(ctx);
+
+			if (this.gameState === "gameover") this.drawOverlay(ctx, "GAME OVER", "Press R for Menu");
+			if (this.gameState === "win") this.drawOverlay(ctx, "BÖLÜM TAMAMLANDI!", "Press R for Menu");
+		}
+	}
+
+	drawGame(ctx) {
 		this.drawParallax(ctx);
 
 		ctx.save();
@@ -170,70 +158,55 @@ export class Game {
 		for (const p of this.platforms) p.draw(ctx);
 		for (const e of this.enemies) e.draw(ctx);
 		for (const c of this.collectables) c.draw(ctx);
-
 		this.flag.draw(ctx);
 		this.player.draw(ctx);
 
 		ctx.restore();
+	}
 
-		// UI
+	drawMenu(ctx) {
+		ctx.fillStyle = "#1a1a2e"; // Koyu şık bir arka plan
+		ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
 		ctx.fillStyle = "white";
-		ctx.font = "30px Arial";
-		//ctx.fillText(`Score: ${this.score}`, 20, 40);
+		ctx.textAlign = "center";
 
-		// GAME STATE TEXT
-		if (this.gameState === "gameover") {
-			ctx.font = "80px Arial";
-			ctx.textAlign = "center";
-			ctx.fillText("GAME OVER", this.canvas.width / 2, this.canvas.height / 2);
-			ctx.fillText("Press R to Restart", this.canvas.width / 2, this.canvas.height / 2 + 80);
-		}
+		ctx.font = "bold 100px Arial";
+		ctx.fillText("MACERA OYUNU", this.canvas.width / 2, 300);
 
-		if (this.gameState === "win") {
-			ctx.font = "80px Arial";
-			ctx.textAlign = "center";
-			ctx.fillText("YOU WIN!", this.canvas.width / 2, this.canvas.height / 2);
-			ctx.fillText("Press R to Restart", this.canvas.width / 2, this.canvas.height / 2 + 80);
-		}
+		ctx.font = "50px Arial";
+		ctx.fillText("Level Seçmek İçin Tuşa Basın:", this.canvas.width / 2, 500);
+
+		ctx.fillStyle = "#4ecca3";
+		ctx.fillText("[1] - Level 1 (Orman)", this.canvas.width / 2, 600);
+		ctx.fillText("[2] - Level 2 (Mağara)", this.canvas.width / 2, 700);
+	}
+
+	drawOverlay(ctx, title, subtitle) {
+		ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+		ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+		ctx.fillStyle = "white";
+		ctx.textAlign = "center";
+		ctx.font = "bold 80px Arial";
+		ctx.fillText(title, this.canvas.width / 2, this.canvas.height / 2);
+
+		ctx.font = "40px Arial";
+		ctx.fillText(subtitle, this.canvas.width / 2, this.canvas.height / 2 + 80);
 	}
 
 	drawParallax(ctx) {
-
 		for (const layer of this.backgrounds) {
-
 			const img = layer.img;
 			const speed = layer.speed;
-
 			const offset = -this.camera.x * speed;
-
-			// ⭐ istediğimiz çizim boyutu
 			const drawWidth = 1920;
 			const drawHeight = 1080;
-
-			// ⭐ zemine yasla
 			const y = this.canvas.height - drawHeight;
 
-			ctx.imageSmoothingEnabled = false;
-
-			// ⭐ repeat draw (scale'li)
-			for (let x = offset % drawWidth - drawWidth; x < this.canvas.width + drawWidth; x += drawWidth) {
-
-				ctx.drawImage(
-					img,
-					x,
-					y,
-					drawWidth,
-					drawHeight
-				);
+			for (let x = (offset % drawWidth) - drawWidth; x < this.canvas.width + drawWidth; x += drawWidth) {
+				ctx.drawImage(img, x, y, drawWidth, drawHeight);
 			}
 		}
-	}
-
-
-
-	// ====================================
-
-	restart() {
-		this.initialize();
 	}
 }
